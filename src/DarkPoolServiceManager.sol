@@ -1,142 +1,126 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
-import {IDarkPoolServiceManager} from "./interfaces/IDarkPoolServiceManager.sol";
+import {Initializable} from "@openzeppelin-upgrades/contracts/proxy/utils/Initializable.sol";
+import {ServiceManagerBase} from "eigenlayer-middleware/ServiceManagerBase.sol";
+import {IServiceManager} from "eigenlayer-middleware/interfaces/IServiceManager.sol";
+import {IRegistryCoordinator} from "eigenlayer-middleware/interfaces/IRegistryCoordinator.sol";
+import {IStakeRegistry} from "eigenlayer-middleware/interfaces/IStakeRegistry.sol";
+import {IAVSDirectory} from "eigenlayer-contracts/src/contracts/interfaces/IAVSDirectory.sol";
+import {IRewardsCoordinator} from "eigenlayer-contracts/src/contracts/interfaces/IRewardsCoordinator.sol";
+import {IAllocationManager} from "eigenlayer-contracts/src/contracts/interfaces/IAllocationManager.sol";
+import {IPermissionController} from "eigenlayer-contracts/src/contracts/interfaces/IPermissionController.sol";
+import {ISlashingRegistryCoordinator} from "eigenlayer-middleware/interfaces/ISlashingRegistryCoordinator.sol";
 import {IDarkPoolTaskManager} from "./interfaces/IDarkPoolTaskManager.sol";
 
 /// @title DarkPoolServiceManager
-/// @notice Manages EigenLayer AVS operators, staking, slashing, and rewards
-/// @dev Implements the service manager interface for EigenLayer integration
-contract DarkPoolServiceManager is IDarkPoolServiceManager, ReentrancyGuard, Ownable, Pausable {
-    /// @notice Minimum stake required to become an operator
-    uint256 public constant MIN_STAKE = 1 ether;
-    
-    /// @notice Maximum slashing percentage (basis points, 10000 = 100%)
-    uint256 public constant MAX_SLASH_BPS = 1000; // 10%
-    
+/// @notice EigenLayer AVS Service Manager for DarkPool Hook
+/// @dev Extends EigenLayer's ServiceManagerBase for direct integration
+contract DarkPoolServiceManager is ServiceManagerBase {
     /// @notice Task manager contract
     IDarkPoolTaskManager public immutable TASK_MANAGER;
 
-    /// @notice Mapping of operator address to their stake
-    mapping(address => uint256) public operatorStake;
-    
-    /// @notice Mapping of operator address to whether they are registered
-    mapping(address => bool) public isOperator;
-    
     /// @notice Mapping of task index to reward amount
     mapping(uint32 => uint256) public taskRewards;
     
     /// @notice Mapping of task index to operator to whether they validated correctly
     mapping(uint32 => mapping(address => bool)) public taskValidations;
-    
-    /// @notice Total staked amount across all operators
-    uint256 public totalStaked;
-    
-    /// @notice Total slashed amount
-    uint256 public totalSlashed;
-    
-    /// @notice Slashing percentage (basis points)
-    uint256 public slashingPercentage;
+
+    /// @notice Events
+    event TaskValidationRewarded(
+        uint32 indexed taskIndex,
+        address indexed operator,
+        uint256 reward
+    );
+    event TaskRewardSet(uint32 indexed taskIndex, uint256 rewardAmount);
 
     /// @notice Errors
-    error InsufficientStake();
-    error NotAnOperator();
-    error AlreadyRegistered();
-    error InvalidSlashPercentage();
     error TaskRewardNotSet();
-    error AlreadyValidated();
     error InvalidOperator();
+    error AlreadyValidated();
+    error OnlyTaskManager();
 
     /// @notice Constructor
+    /// @param _avsDirectory EigenLayer AVS Directory contract
+    /// @param _rewardsCoordinator EigenLayer Rewards Coordinator contract
+    /// @param _registryCoordinator EigenLayer Registry Coordinator contract
+    /// @param _stakeRegistry EigenLayer Stake Registry contract
+    /// @param _permissionController EigenLayer Permission Controller contract
+    /// @param _allocationManager EigenLayer Allocation Manager contract
     /// @param _taskManager The task manager contract
-    /// @param _owner The owner of the contract
-    /// @param _slashingPercentage Initial slashing percentage in basis points
     constructor(
-        IDarkPoolTaskManager _taskManager,
-        address _owner,
-        uint256 _slashingPercentage
-    ) Ownable(_owner) {
+        IAVSDirectory _avsDirectory,
+        IRewardsCoordinator _rewardsCoordinator,
+        ISlashingRegistryCoordinator _registryCoordinator,
+        IStakeRegistry _stakeRegistry,
+        IPermissionController _permissionController,
+        IAllocationManager _allocationManager,
+        IDarkPoolTaskManager _taskManager
+    )
+        ServiceManagerBase(
+            _avsDirectory,
+            _rewardsCoordinator,
+            _registryCoordinator,
+            _stakeRegistry,
+            _permissionController,
+            _allocationManager
+        )
+    {
         TASK_MANAGER = _taskManager;
-        if (_slashingPercentage > MAX_SLASH_BPS) {
-            revert InvalidSlashPercentage();
-        }
-        slashingPercentage = _slashingPercentage;
     }
 
-    /// @notice Register as an operator with minimum stake
-    function registerOperator() external payable whenNotPaused {
-        if (isOperator[msg.sender]) {
-            revert AlreadyRegistered();
-        }
-        
-        if (msg.value < MIN_STAKE) {
-            revert InsufficientStake();
-        }
-
-        isOperator[msg.sender] = true;
-        operatorStake[msg.sender] = msg.value;
-        totalStaked += msg.value;
-
-        emit OperatorRegistered(msg.sender, msg.value);
+    /// @notice Initialize the contract
+    /// @param initialOwner The initial owner of the contract
+    /// @param _rewardsInitiator The address that can initiate rewards
+    function initialize(
+        address initialOwner,
+        address _rewardsInitiator
+    ) external initializer {
+        __ServiceManagerBase_init(initialOwner, _rewardsInitiator);
     }
 
-    /// @notice Deregister operator and return stake
-    function deregisterOperator() external nonReentrant whenNotPaused {
-        if (!isOperator[msg.sender]) {
-            revert NotAnOperator();
-        }
-
-        uint256 stake = operatorStake[msg.sender];
-        operatorStake[msg.sender] = 0;
-        isOperator[msg.sender] = false;
-        totalStaked -= stake;
-
-        // Return stake to operator
-        (bool success, ) = payable(msg.sender).call{value: stake}("");
-        require(success, "Transfer failed");
-
-        emit OperatorDeregistered(msg.sender);
-    }
-
-    /// @notice Add more stake to existing registration
-    function addStake() external payable whenNotPaused {
-        if (!isOperator[msg.sender]) {
-            revert NotAnOperator();
-        }
-
-        operatorStake[msg.sender] += msg.value;
-        totalStaked += msg.value;
-
-        emit StakeUpdated(msg.sender, operatorStake[msg.sender]);
-    }
-
-    /// @notice Check if an address is a valid operator
+    /// @notice Check if an address is a valid operator registered with EigenLayer
     /// @param operator The operator address to check
+    /// @param quorumNumber The quorum number to check (0 for first quorum)
     /// @return Whether the address is a valid operator
-    function isValidOperator(address operator) external view override returns (bool) {
-        return isOperator[operator] && operatorStake[operator] >= MIN_STAKE;
+    function isValidOperator(address operator, uint8 quorumNumber) external view returns (bool) {
+        IRegistryCoordinator registryCoordinator = IRegistryCoordinator(address(_registryCoordinator));
+        
+        // Get operator ID from registry coordinator
+        bytes32 operatorId = registryCoordinator.getOperatorId(operator);
+        
+        // Check if operator has stake in the quorum
+        uint96 stake = _stakeRegistry.getCurrentStake(operatorId, quorumNumber);
+        uint96 minimumStake = _stakeRegistry.minimumStakeForQuorum(quorumNumber);
+        
+        return stake >= minimumStake;
     }
 
-    /// @notice Get operator stake amount
+    /// @notice Get operator stake amount from EigenLayer
     /// @param operator The operator address
+    /// @param quorumNumber The quorum number
     /// @return The stake amount
-    function getOperatorStake(address operator) external view override returns (uint256) {
-        return operatorStake[operator];
+    function getOperatorStake(address operator, uint8 quorumNumber) external view returns (uint96) {
+        IRegistryCoordinator registryCoordinator = IRegistryCoordinator(address(_registryCoordinator));
+        bytes32 operatorId = registryCoordinator.getOperatorId(operator);
+        return _stakeRegistry.getCurrentStake(operatorId, quorumNumber);
     }
 
     /// @notice Record task validation by operator
     /// @param taskIndex The task index
     /// @param operator The operator address
-    function recordTaskValidation(uint32 taskIndex, address operator) external override {
+    function recordTaskValidation(uint32 taskIndex, address operator) external {
         if (msg.sender != address(TASK_MANAGER)) {
-            revert InvalidOperator();
+            revert OnlyTaskManager();
         }
         
-        if (!isOperator[operator]) {
-            revert NotAnOperator();
+        // Verify operator is registered with EigenLayer
+        IRegistryCoordinator registryCoordinator = IRegistryCoordinator(address(_registryCoordinator));
+        bytes32 operatorId = registryCoordinator.getOperatorId(operator);
+        
+        // Check if operator is registered (has non-zero operatorId)
+        if (operatorId == bytes32(0)) {
+            revert InvalidOperator();
         }
         
         if (taskValidations[taskIndex][operator]) {
@@ -149,21 +133,20 @@ contract DarkPoolServiceManager is IDarkPoolServiceManager, ReentrancyGuard, Own
     /// @notice Set reward amount for a task
     /// @param taskIndex The task index
     /// @param rewardAmount The reward amount
-    function setTaskReward(uint32 taskIndex, uint256 rewardAmount) external payable override onlyOwner {
-        if (msg.value != rewardAmount) {
-            revert("Value mismatch");
-        }
-        
+    function setTaskReward(uint32 taskIndex, uint256 rewardAmount) external onlyOwner {
         taskRewards[taskIndex] = rewardAmount;
+        emit TaskRewardSet(taskIndex, rewardAmount);
     }
 
     /// @notice Distribute rewards to operators who validated tasks correctly
     /// @param taskIndex The task index
     /// @param validOperators Array of operators who validated correctly
+    /// @param quorumNumber The quorum number for stake checking
     function distributeTaskReward(
         uint32 taskIndex,
-        address[] calldata validOperators
-    ) external override nonReentrant onlyOwner {
+        address[] calldata validOperators,
+        uint8 quorumNumber
+    ) external onlyOwner {
         uint256 reward = taskRewards[taskIndex];
         
         if (reward == 0) {
@@ -174,13 +157,23 @@ contract DarkPoolServiceManager is IDarkPoolServiceManager, ReentrancyGuard, Own
             return;
         }
 
+        // Prepare operator-directed rewards submission for EigenLayer
+        // This will be distributed through EigenLayer's rewards coordinator
+        // For now, we'll use a simplified approach - in production, you'd use createOperatorDirectedAVSRewardsSubmission
+        
         uint256 rewardPerOperator = reward / validOperators.length;
         uint256 remainder = reward % validOperators.length;
 
+        // Verify each operator and record validation
         for (uint256 i = 0; i < validOperators.length; i++) {
             address operator = validOperators[i];
             
             if (!taskValidations[taskIndex][operator]) {
+                continue;
+            }
+
+            // Verify operator is still valid
+            if (!this.isValidOperator(operator, quorumNumber)) {
                 continue;
             }
 
@@ -189,9 +182,6 @@ contract DarkPoolServiceManager is IDarkPoolServiceManager, ReentrancyGuard, Own
                 operatorReward += remainder; // Give remainder to first operator
             }
 
-            (bool success, ) = payable(operator).call{value: operatorReward}("");
-            require(success, "Reward transfer failed");
-
             emit TaskValidationRewarded(taskIndex, operator, operatorReward);
         }
 
@@ -199,64 +189,15 @@ contract DarkPoolServiceManager is IDarkPoolServiceManager, ReentrancyGuard, Own
         taskRewards[taskIndex] = 0;
     }
 
-    /// @notice Slash an operator for misbehavior
-    /// @param operator The operator to slash
-    /// @param amount The amount to slash
-    function slashOperator(address operator, uint256 amount) external onlyOwner {
-        if (!isOperator[operator]) {
-            revert NotAnOperator();
-        }
-
-        uint256 stake = operatorStake[operator];
-        uint256 slashAmount = amount > stake ? stake : amount;
-        
-        // Calculate slashing based on percentage
-        uint256 slashByPercentage = (stake * slashingPercentage) / 10000;
-        uint256 finalSlash = slashAmount > slashByPercentage ? slashByPercentage : slashAmount;
-
-        operatorStake[operator] -= finalSlash;
-        totalStaked -= finalSlash;
-        totalSlashed += finalSlash;
-
-        // If stake falls below minimum, deregister
-        if (operatorStake[operator] < MIN_STAKE) {
-            isOperator[operator] = false;
-            emit OperatorDeregistered(operator);
-        }
-
-        emit OperatorSlashed(operator, finalSlash);
+    /// @notice Get the registry coordinator address
+    /// @return The registry coordinator contract
+    function registryCoordinator() external view returns (address) {
+        return address(_registryCoordinator);
     }
 
-    /// @notice Set the slashing percentage
-    /// @param newPercentage The new slashing percentage in basis points
-    function setSlashingPercentage(uint256 newPercentage) external onlyOwner {
-        if (newPercentage > MAX_SLASH_BPS) {
-            revert InvalidSlashPercentage();
-        }
-        slashingPercentage = newPercentage;
+    /// @notice Get the stake registry address
+    /// @return The stake registry contract
+    function stakeRegistry() external view returns (address) {
+        return address(_stakeRegistry);
     }
-
-    /// @notice Pause the contract
-    function pause() external onlyOwner {
-        _pause();
-    }
-
-    /// @notice Unpause the contract
-    function unpause() external onlyOwner {
-        _unpause();
-    }
-
-    /// @notice Withdraw contract balance (only slashed funds)
-    /// @param to The address to withdraw to
-    /// @param amount The amount to withdraw
-    function withdrawSlashedFunds(address to, uint256 amount) external onlyOwner {
-        require(amount <= totalSlashed, "Insufficient slashed funds");
-        totalSlashed -= amount;
-        (bool success, ) = payable(to).call{value: amount}("");
-        require(success, "Withdraw failed");
-    }
-
-    /// @notice Receive function to accept ETH
-    receive() external payable {}
 }
-

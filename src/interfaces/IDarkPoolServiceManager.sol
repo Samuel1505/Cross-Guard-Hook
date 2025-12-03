@@ -34,14 +34,18 @@ interface IDarkPoolServiceManager {
     function addStake() external payable;
 
     /**
-     * @dev Check if an address is a valid operator
+     * @dev Check if an address is a valid operator registered with EigenLayer
+     * @param operator The operator address to check
+     * @param quorumNumber The quorum number to check
      */
-    function isValidOperator(address operator) external view returns (bool);
+    function isValidOperator(address operator, uint8 quorumNumber) external view returns (bool);
 
     /**
-     * @dev Get operator stake amount
+     * @dev Get operator stake amount from EigenLayer
+     * @param operator The operator address
+     * @param quorumNumber The quorum number
      */
-    function getOperatorStake(address operator) external view returns (uint256);
+    function getOperatorStake(address operator, uint8 quorumNumber) external view returns (uint96);
 
     /**
      * @dev Record task validation by operator
