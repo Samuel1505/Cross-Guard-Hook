@@ -17,35 +17,19 @@ interface IDarkPoolTaskManager {
     }
 
     // Events
-    event TaskCreated(
-        uint32 indexed taskIndex,
-        bytes32 indexed batchHash,
-        address indexed creator
-    );
-    event TaskResponded(
-        uint32 indexed taskIndex,
-        address indexed operator,
-        bytes32 response
-    );
+    event TaskCreated(uint32 indexed taskIndex, bytes32 indexed batchHash, address indexed creator);
+    event TaskResponded(uint32 indexed taskIndex, address indexed operator, bytes32 response);
     event TaskCompleted(uint32 indexed taskIndex, bytes32 response);
 
     /**
      * @dev Create a new task for batch validation
      */
-    function createNewTask(
-        bytes32 batchHash,
-        uint32 quorumThreshold,
-        bytes calldata quorumNumbers
-    ) external;
+    function createNewTask(bytes32 batchHash, uint32 quorumThreshold, bytes calldata quorumNumbers) external;
 
     /**
      * @dev Respond to a task with signature
      */
-    function respondToTask(
-        bytes32 batchHash,
-        bytes32 response,
-        bytes calldata signature
-    ) external;
+    function respondToTask(bytes32 batchHash, bytes32 response, bytes calldata signature) external;
 
     /**
      * @dev Get the latest task number

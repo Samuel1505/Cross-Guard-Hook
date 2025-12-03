@@ -16,19 +16,19 @@ contract DarkPoolTaskManager is IDarkPoolTaskManager, ReentrancyGuard, Ownable, 
 
     /// @notice Latest task number
     uint32 private _latestTaskNum;
-    
+
     /// @notice Mapping of task index to task data
     mapping(uint32 => Task) public tasks;
-    
+
     /// @notice Mapping of task index to operator to response
     mapping(uint32 => mapping(address => bytes32)) public taskResponses;
-    
+
     /// @notice Mapping of task index to response hash to count
     mapping(uint32 => mapping(bytes32 => uint256)) public responseCounts;
-    
+
     /// @notice Minimum quorum threshold
     uint32 public constant MIN_QUORUM_THRESHOLD = 1;
-    
+
     /// @notice Maximum quorum threshold
     uint32 public constant MAX_QUORUM_THRESHOLD = 100;
 
@@ -44,10 +44,7 @@ contract DarkPoolTaskManager is IDarkPoolTaskManager, ReentrancyGuard, Ownable, 
     /// @notice Constructor
     /// @param _serviceManager The service manager contract
     /// @param _owner The owner of the contract
-    constructor(
-        IDarkPoolServiceManager _serviceManager,
-        address _owner
-    ) Ownable(_owner) {
+    constructor(IDarkPoolServiceManager _serviceManager, address _owner) Ownable(_owner) {
         SERVICE_MANAGER = _serviceManager;
     }
 
@@ -55,17 +52,17 @@ contract DarkPoolTaskManager is IDarkPoolTaskManager, ReentrancyGuard, Ownable, 
     /// @param batchHash The hash of the batch to validate
     /// @param quorumThreshold The minimum number of responses needed
     /// @param quorumNumbers The quorum numbers (for EigenLayer compatibility)
-    function createNewTask(
-        bytes32 batchHash,
-        uint32 quorumThreshold,
-        bytes calldata quorumNumbers
-    ) external override whenNotPaused {
+    function createNewTask(bytes32 batchHash, uint32 quorumThreshold, bytes calldata quorumNumbers)
+        external
+        override
+        whenNotPaused
+    {
         if (quorumThreshold < MIN_QUORUM_THRESHOLD || quorumThreshold > MAX_QUORUM_THRESHOLD) {
             revert InvalidQuorumThreshold();
         }
 
         uint32 taskIndex = _latestTaskNum++;
-        
+
         tasks[taskIndex] = Task({
             batchHash: batchHash,
             quorumThreshold: quorumThreshold,
@@ -85,16 +82,21 @@ contract DarkPoolTaskManager is IDarkPoolTaskManager, ReentrancyGuard, Ownable, 
         bytes32 batchHash,
         bytes32 response,
         bytes calldata /* signature - reserved for future EIP-712 implementation */
-    ) external override nonReentrant whenNotPaused {
+    )
+        external
+        override
+        nonReentrant
+        whenNotPaused
+    {
         // Find the task by batch hash
         uint32 taskIndex = _findTaskByBatchHash(batchHash);
-        
+
         if (taskIndex == type(uint32).max) {
             revert TaskNotFound();
         }
 
         Task storage task = tasks[taskIndex];
-        
+
         if (task.isCompleted) {
             revert TaskAlreadyCompleted();
         }
@@ -116,7 +118,7 @@ contract DarkPoolTaskManager is IDarkPoolTaskManager, ReentrancyGuard, Ownable, 
         // Record response
         taskResponses[taskIndex][msg.sender] = response;
         responseCounts[taskIndex][response]++;
-        
+
         // Notify service manager
         SERVICE_MANAGER.recordTaskValidation(taskIndex, msg.sender);
 
@@ -188,7 +190,7 @@ contract DarkPoolTaskManager is IDarkPoolTaskManager, ReentrancyGuard, Ownable, 
         if (task.isCompleted) {
             revert TaskAlreadyCompleted();
         }
-        
+
         task.isCompleted = true;
         emit TaskCompleted(taskIndex, response);
     }

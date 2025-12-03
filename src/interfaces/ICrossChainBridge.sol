@@ -25,12 +25,7 @@ interface ICrossChainBridge {
     /// @param recipient The recipient address
     /// @param currency The currency to receive
     /// @param amount The amount to receive
-    function completeCrossChainTransfer(
-        bytes32 swapHash,
-        address recipient,
-        Currency currency,
-        uint256 amount
-    ) external;
+    function completeCrossChainTransfer(bytes32 swapHash, address recipient, Currency currency, uint256 amount) external;
 
     /// @notice Check if a cross-chain transfer is pending
     /// @param swapHash The swap hash

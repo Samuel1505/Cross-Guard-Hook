@@ -27,19 +27,19 @@ contract DarkPoolHook is BaseHook, ReentrancyGuard, Ownable {
 
     /// @notice Minimum commit period in blocks
     uint256 public constant MIN_COMMIT_PERIOD = 1;
-    
+
     /// @notice Maximum commit period in blocks
     uint256 public constant MAX_COMMIT_PERIOD = 100;
-    
+
     /// @notice Default commit period in blocks
     uint256 public constant DEFAULT_COMMIT_PERIOD = 5;
 
     /// @notice Service manager for EigenLayer AVS integration
     IDarkPoolServiceManager public immutable SERVICE_MANAGER;
-    
+
     /// @notice Task manager for validation tasks
     IDarkPoolTaskManager public immutable TASK_MANAGER;
-    
+
     /// @notice Cross-chain bridge interface
     ICrossChainBridge public crossChainBridge;
 
@@ -48,10 +48,10 @@ contract DarkPoolHook is BaseHook, ReentrancyGuard, Ownable {
 
     /// @notice Mapping of commit hash to commit data
     mapping(bytes32 => CommitData) public commits;
-    
+
     /// @notice Mapping of pool ID to whether it's enabled for dark pool swaps
     mapping(PoolId => bool) public enabledPools;
-    
+
     /// @notice Mapping of user to their nonce for commit-reveal
     mapping(address => uint256) public userNonces;
 
@@ -78,33 +78,20 @@ contract DarkPoolHook is BaseHook, ReentrancyGuard, Ownable {
     }
 
     /// @notice Events
-    event CommitCreated(
-        bytes32 indexed commitHash,
-        address indexed user,
-        PoolId indexed poolId,
-        uint256 commitBlock
-    );
-    
+    event CommitCreated(bytes32 indexed commitHash, address indexed user, PoolId indexed poolId, uint256 commitBlock);
+
     event SwapRevealed(
-        bytes32 indexed commitHash,
-        address indexed user,
-        PoolId indexed poolId,
-        uint256 amountIn,
-        uint256 amountOut
+        bytes32 indexed commitHash, address indexed user, PoolId indexed poolId, uint256 amountIn, uint256 amountOut
     );
-    
+
     event CrossChainSwapInitiated(
-        bytes32 indexed swapHash,
-        address indexed user,
-        uint256 indexed targetChainId,
-        Currency currency,
-        uint256 amount
+        bytes32 indexed swapHash, address indexed user, uint256 indexed targetChainId, Currency currency, uint256 amount
     );
-    
+
     event PoolEnabled(PoolId indexed poolId, bool enabled);
-    
+
     event CommitPeriodUpdated(uint256 oldPeriod, uint256 newPeriod);
-    
+
     event CrossChainBridgeUpdated(address oldBridge, address newBridge);
 
     /// @notice Errors
@@ -145,8 +132,8 @@ contract DarkPoolHook is BaseHook, ReentrancyGuard, Ownable {
             afterAddLiquidity: false,
             beforeRemoveLiquidity: false,
             afterRemoveLiquidity: false,
-            beforeSwap: true,  // Enable beforeSwap for commit-reveal validation
-            afterSwap: true,   // Enable afterSwap for cross-chain and validation
+            beforeSwap: true, // Enable beforeSwap for commit-reveal validation
+            afterSwap: true, // Enable afterSwap for cross-chain and validation
             beforeDonate: false,
             afterDonate: false,
             beforeSwapReturnDelta: false,
@@ -173,7 +160,7 @@ contract DarkPoolHook is BaseHook, ReentrancyGuard, Ownable {
         bytes32 secret
     ) external nonReentrant returns (bytes32 commitHash) {
         PoolId poolId = poolKey.toId();
-        
+
         if (!enabledPools[poolId]) {
             revert PoolNotEnabled();
         }
@@ -184,20 +171,10 @@ contract DarkPoolHook is BaseHook, ReentrancyGuard, Ownable {
 
         // Increment user nonce
         uint256 nonce = userNonces[msg.sender]++;
-        
+
         // Create commit hash: keccak256(user, poolId, amountIn, currencyIn, currencyOut, deadline, nonce, secret)
-        commitHash = keccak256(
-            abi.encodePacked(
-                msg.sender,
-                poolId,
-                amountIn,
-                currencyIn,
-                currencyOut,
-                deadline,
-                nonce,
-                secret
-            )
-        );
+        commitHash =
+            keccak256(abi.encodePacked(msg.sender, poolId, amountIn, currencyIn, currencyOut, deadline, nonce, secret));
 
         // Store commit data
         commits[commitHash] = CommitData({
@@ -229,23 +206,23 @@ contract DarkPoolHook is BaseHook, ReentrancyGuard, Ownable {
         bytes calldata hookData
     ) external nonReentrant {
         CommitData storage commit = commits[commitHash];
-        
+
         if (commit.user == address(0)) {
             revert CommitNotFound();
         }
-        
+
         if (commit.revealed) {
             revert CommitAlreadyRevealed();
         }
-        
+
         if (commit.executed) {
             revert SwapAlreadyExecuted();
         }
-        
+
         if (block.number < commit.commitBlock + commitPeriod) {
             revert CommitPeriodNotElapsed();
         }
-        
+
         if (block.timestamp >= commit.deadline) {
             revert CommitExpired();
         }
@@ -264,7 +241,7 @@ contract DarkPoolHook is BaseHook, ReentrancyGuard, Ownable {
                 secret
             )
         );
-        
+
         if (computedHash != commitHash) {
             revert InvalidReveal();
         }
@@ -275,7 +252,7 @@ contract DarkPoolHook is BaseHook, ReentrancyGuard, Ownable {
         // Execute the swap through the pool manager
         // Note: In a real implementation, you would call poolManager.swap() here
         // This is a simplified version for demonstration
-        
+
         emit SwapRevealed(commitHash, commit.user, commit.poolId, commit.amountIn, 0);
     }
 
@@ -287,38 +264,35 @@ contract DarkPoolHook is BaseHook, ReentrancyGuard, Ownable {
     /// @return selector The function selector
     /// @return delta The before swap delta
     /// @return fee The fee tier
-    function _beforeSwap(
-        address sender,
-        PoolKey calldata key,
-        SwapParams calldata params,
-        bytes calldata hookData
-    ) internal override returns (bytes4, BeforeSwapDelta, uint24) {
+    function _beforeSwap(address sender, PoolKey calldata key, SwapParams calldata params, bytes calldata hookData)
+        internal
+        override
+        returns (bytes4, BeforeSwapDelta, uint24)
+    {
         PoolId poolId = key.toId();
-        
+
         // If this is a dark pool swap (has commit hash in hookData)
         if (hookData.length >= 32) {
             bytes32 commitHash = abi.decode(hookData, (bytes32));
             CommitData storage commit = commits[commitHash];
-            
+
             if (commit.user != address(0) && !commit.executed) {
                 // Validate that commit period has elapsed
                 if (block.number < commit.commitBlock + commitPeriod) {
                     revert CommitPeriodNotElapsed();
                 }
-                
+
                 // Validate operator through EigenLayer AVS if enabled
                 // This is a simplified check - in production, you'd validate through task manager
                 if (address(TASK_MANAGER) != address(0)) {
                     // Create a validation task for the swap batch
-                    bytes32 batchHash = keccak256(
-                        abi.encodePacked(commitHash, block.number, sender)
-                    );
+                    bytes32 batchHash = keccak256(abi.encodePacked(commitHash, block.number, sender));
                     // In production, this would create a task and wait for validation
                 }
             }
         }
 
-        // Return default values (no delta modification)  
+        // Return default values (no delta modification)
         // Return the selector for beforeSwap hook
         return (BaseHook.beforeSwap.selector, BeforeSwapDelta.wrap(0), 0);
     }
@@ -340,7 +314,7 @@ contract DarkPoolHook is BaseHook, ReentrancyGuard, Ownable {
     ) internal override returns (bytes4, int128) {
         PoolId poolId = key.toId();
         int128 hookDelta = 0;
-        
+
         // If hookData contains cross-chain swap data
         if (hookData.length > 32) {
             try this._handleCrossChainSwap(sender, key, params, delta, hookData) returns (int128 result) {
@@ -349,7 +323,7 @@ contract DarkPoolHook is BaseHook, ReentrancyGuard, Ownable {
                 // If cross-chain swap fails, continue with normal swap
             }
         }
-        
+
         // Mark commit as executed if it was a committed swap
         if (hookData.length >= 32) {
             bytes32 commitHash = abi.decode(hookData[:32], (bytes32));
@@ -377,7 +351,7 @@ contract DarkPoolHook is BaseHook, ReentrancyGuard, Ownable {
         bytes calldata hookData
     ) external returns (int128 hookDelta) {
         require(msg.sender == address(this), "Only self");
-        
+
         if (address(crossChainBridge) == address(0)) {
             revert InvalidCrossChainData();
         }
@@ -395,17 +369,9 @@ contract DarkPoolHook is BaseHook, ReentrancyGuard, Ownable {
 
         // Determine output currency
         Currency outputCurrency = params.zeroForOne ? key.currency1 : key.currency0;
-        
+
         // Create swap hash for tracking
-        bytes32 swapHash = keccak256(
-            abi.encodePacked(
-                commitHash,
-                targetChainId,
-                recipient,
-                amount,
-                block.number
-            )
-        );
+        bytes32 swapHash = keccak256(abi.encodePacked(commitHash, targetChainId, recipient, amount, block.number));
 
         // Initiate cross-chain bridge transfer
         // In production, this would call the bridge contract

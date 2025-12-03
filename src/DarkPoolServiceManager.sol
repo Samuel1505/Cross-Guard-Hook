@@ -22,16 +22,12 @@ contract DarkPoolServiceManager is ServiceManagerBase {
 
     /// @notice Mapping of task index to reward amount
     mapping(uint32 => uint256) public taskRewards;
-    
+
     /// @notice Mapping of task index to operator to whether they validated correctly
     mapping(uint32 => mapping(address => bool)) public taskValidations;
 
     /// @notice Events
-    event TaskValidationRewarded(
-        uint32 indexed taskIndex,
-        address indexed operator,
-        uint256 reward
-    );
+    event TaskValidationRewarded(uint32 indexed taskIndex, address indexed operator, uint256 reward);
     event TaskRewardSet(uint32 indexed taskIndex, uint256 rewardAmount);
 
     /// @notice Errors
@@ -72,10 +68,7 @@ contract DarkPoolServiceManager is ServiceManagerBase {
     /// @notice Initialize the contract
     /// @param initialOwner The initial owner of the contract
     /// @param _rewardsInitiator The address that can initiate rewards
-    function initialize(
-        address initialOwner,
-        address _rewardsInitiator
-    ) external initializer {
+    function initialize(address initialOwner, address _rewardsInitiator) external initializer {
         __ServiceManagerBase_init(initialOwner, _rewardsInitiator);
     }
 
@@ -85,14 +78,14 @@ contract DarkPoolServiceManager is ServiceManagerBase {
     /// @return Whether the address is a valid operator
     function isValidOperator(address operator, uint8 quorumNumber) external view returns (bool) {
         IRegistryCoordinator registryCoordinator = IRegistryCoordinator(address(_registryCoordinator));
-        
+
         // Get operator ID from registry coordinator
         bytes32 operatorId = registryCoordinator.getOperatorId(operator);
-        
+
         // Check if operator has stake in the quorum
         uint96 stake = _stakeRegistry.getCurrentStake(operatorId, quorumNumber);
         uint96 minimumStake = _stakeRegistry.minimumStakeForQuorum(quorumNumber);
-        
+
         return stake >= minimumStake;
     }
 
@@ -113,16 +106,16 @@ contract DarkPoolServiceManager is ServiceManagerBase {
         if (msg.sender != address(TASK_MANAGER)) {
             revert OnlyTaskManager();
         }
-        
+
         // Verify operator is registered with EigenLayer
         IRegistryCoordinator registryCoordinator = IRegistryCoordinator(address(_registryCoordinator));
         bytes32 operatorId = registryCoordinator.getOperatorId(operator);
-        
+
         // Check if operator is registered (has non-zero operatorId)
         if (operatorId == bytes32(0)) {
             revert InvalidOperator();
         }
-        
+
         if (taskValidations[taskIndex][operator]) {
             revert AlreadyValidated();
         }
@@ -142,13 +135,12 @@ contract DarkPoolServiceManager is ServiceManagerBase {
     /// @param taskIndex The task index
     /// @param validOperators Array of operators who validated correctly
     /// @param quorumNumber The quorum number for stake checking
-    function distributeTaskReward(
-        uint32 taskIndex,
-        address[] calldata validOperators,
-        uint8 quorumNumber
-    ) external onlyOwner {
+    function distributeTaskReward(uint32 taskIndex, address[] calldata validOperators, uint8 quorumNumber)
+        external
+        onlyOwner
+    {
         uint256 reward = taskRewards[taskIndex];
-        
+
         if (reward == 0) {
             revert TaskRewardNotSet();
         }
@@ -160,14 +152,14 @@ contract DarkPoolServiceManager is ServiceManagerBase {
         // Prepare operator-directed rewards submission for EigenLayer
         // This will be distributed through EigenLayer's rewards coordinator
         // For now, we'll use a simplified approach - in production, you'd use createOperatorDirectedAVSRewardsSubmission
-        
+
         uint256 rewardPerOperator = reward / validOperators.length;
         uint256 remainder = reward % validOperators.length;
 
         // Verify each operator and record validation
         for (uint256 i = 0; i < validOperators.length; i++) {
             address operator = validOperators[i];
-            
+
             if (!taskValidations[taskIndex][operator]) {
                 continue;
             }
