@@ -77,10 +77,10 @@ contract DarkPoolServiceManager is ServiceManagerBase {
     /// @param quorumNumber The quorum number to check (0 for first quorum)
     /// @return Whether the address is a valid operator
     function isValidOperator(address operator, uint8 quorumNumber) external view returns (bool) {
-        IRegistryCoordinator registryCoordinator = IRegistryCoordinator(address(_registryCoordinator));
+        IRegistryCoordinator regCoordinator = IRegistryCoordinator(address(_registryCoordinator));
 
         // Get operator ID from registry coordinator
-        bytes32 operatorId = registryCoordinator.getOperatorId(operator);
+        bytes32 operatorId = regCoordinator.getOperatorId(operator);
 
         // Check if operator has stake in the quorum
         uint96 stake = _stakeRegistry.getCurrentStake(operatorId, quorumNumber);
@@ -94,8 +94,8 @@ contract DarkPoolServiceManager is ServiceManagerBase {
     /// @param quorumNumber The quorum number
     /// @return The stake amount
     function getOperatorStake(address operator, uint8 quorumNumber) external view returns (uint96) {
-        IRegistryCoordinator registryCoordinator = IRegistryCoordinator(address(_registryCoordinator));
-        bytes32 operatorId = registryCoordinator.getOperatorId(operator);
+        IRegistryCoordinator regCoordinator = IRegistryCoordinator(address(_registryCoordinator));
+        bytes32 operatorId = regCoordinator.getOperatorId(operator);
         return _stakeRegistry.getCurrentStake(operatorId, quorumNumber);
     }
 
@@ -108,8 +108,8 @@ contract DarkPoolServiceManager is ServiceManagerBase {
         }
 
         // Verify operator is registered with EigenLayer
-        IRegistryCoordinator registryCoordinator = IRegistryCoordinator(address(_registryCoordinator));
-        bytes32 operatorId = registryCoordinator.getOperatorId(operator);
+        IRegistryCoordinator regCoordinator = IRegistryCoordinator(address(_registryCoordinator));
+        bytes32 operatorId = regCoordinator.getOperatorId(operator);
 
         // Check if operator is registered (has non-zero operatorId)
         if (operatorId == bytes32(0)) {
