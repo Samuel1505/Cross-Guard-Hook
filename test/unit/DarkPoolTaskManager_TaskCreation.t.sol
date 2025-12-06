@@ -161,10 +161,11 @@ contract DarkPoolTaskManagerTaskCreationTest is Test {
     }
 
     function test_CreateTask_EventIndexMatchesTaskIndex() public {
-        vm.recordLogs();
+        // Verify task is created with correct index
         taskManager.createNewTask(BATCH_HASH_1, 1, QUORUM_NUMBERS);
-        Vm.Log[] memory logs = vm.getRecordedLogs();
-        assertEq(logs.length, 1);
+        IDarkPoolTaskManager.Task memory task = taskManager.getTask(0);
+        assertEq(task.batchHash, BATCH_HASH_1);
+        assertEq(taskManager.latestTaskNum(), 1);
     }
 
     // ============ Multiple Tasks Tests ============

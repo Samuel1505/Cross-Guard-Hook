@@ -12,6 +12,7 @@ import {PoolId, PoolIdLibrary} from "@uniswap/v4-core/src/types/PoolId.sol";
 import {Currency, CurrencyLibrary} from "@uniswap/v4-core/src/types/Currency.sol";
 import {SwapParams} from "@uniswap/v4-core/src/types/PoolOperation.sol";
 import {Hooks} from "@uniswap/v4-core/src/libraries/Hooks.sol";
+import {IHooks} from "@uniswap/v4-core/src/interfaces/IHooks.sol";
 
 /// @title DarkPoolHook Unit Tests
 /// @notice Comprehensive unit tests for DarkPoolHook contract
@@ -57,7 +58,7 @@ contract DarkPoolHookTest is Test {
             currency1: currency1,
             fee: 3000,
             tickSpacing: 60,
-            hooks: Hooks(address(hook))
+            hooks: IHooks(address(hook))
         });
         poolId = poolKey.toId();
     }
@@ -65,7 +66,7 @@ contract DarkPoolHookTest is Test {
     // ============ Constructor Tests ============
 
     function test_Constructor_SetsPoolManager() public {
-        assertEq(address(hook.POOL_MANAGER()), address(poolManager));
+        assertEq(address(hook.poolManager()), address(poolManager));
     }
 
     function test_Constructor_SetsServiceManager() public {
@@ -117,10 +118,10 @@ contract DarkPoolHookTest is Test {
 
         DarkPoolHook.CommitData memory commit = hook.getCommit(commitHash);
         assertEq(commit.user, user);
-        assertEq(uint256(commit.poolId), uint256(poolId));
+        assertEq(PoolId.unwrap(commit.poolId), PoolId.unwrap(poolId));
         assertEq(commit.amountIn, amountIn);
-        assertEq(commit.currencyIn, currency0);
-        assertEq(commit.currencyOut, currency1);
+        assertEq(Currency.unwrap(commit.currencyIn), Currency.unwrap(currency0));
+        assertEq(Currency.unwrap(commit.currencyOut), Currency.unwrap(currency1));
         assertEq(commit.deadline, deadline);
         assertEq(commit.commitBlock, block.number);
         assertFalse(commit.revealed);
@@ -429,7 +430,7 @@ contract DarkPoolHookTest is Test {
             currency1: currency1,
             fee: 500,
             tickSpacing: 60,
-            hooks: Hooks(address(hook))
+            hooks: IHooks(address(hook))
         });
 
         hook.setPoolEnabled(poolKey, true);

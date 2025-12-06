@@ -60,41 +60,41 @@ contract DarkPoolServiceManagerTest is Test {
     function test_Constructor_SetsTaskManager() public {
         // This test would require proper EigenLayer contract setup
         // For now, we'll test the basic structure
-        skip(); // Skip until proper mocks are set up
+        vm.skip(true, "Skip until proper mocks are set up");
     }
 
     // ============ Initialize Tests ============
 
     function test_Initialize_Success() public {
-        skip(); // Requires proper EigenLayer setup
+        vm.skip(true, "Requires proper EigenLayer setup");
     }
 
     function test_Initialize_RevertIfAlreadyInitialized() public {
-        skip();
+        vm.skip(true, "Test not implemented");
     }
 
     // ============ IsValidOperator Tests ============
 
     function test_IsValidOperator_ReturnsTrueForValidOperator() public {
-        skip(); // Requires EigenLayer registry setup
+        vm.skip(true, "Requires EigenLayer registry setup");
     }
 
     function test_IsValidOperator_ReturnsFalseForInvalidOperator() public {
-        skip();
+        vm.skip(true, "Test not implemented");
     }
 
     function test_IsValidOperator_ChecksQuorumStake() public {
-        skip();
+        vm.skip(true, "Test not implemented");
     }
 
     // ============ GetOperatorStake Tests ============
 
     function test_GetOperatorStake_ReturnsCorrectStake() public {
-        skip();
+        vm.skip(true, "Test not implemented");
     }
 
     function test_GetOperatorStake_ReturnsZeroForNonExistentOperator() public {
-        skip();
+        vm.skip(true, "Test not implemented");
     }
 
     // ============ RecordTaskValidation Tests ============
@@ -121,79 +121,79 @@ contract DarkPoolServiceManagerTest is Test {
     }
 
     function test_RecordTaskValidation_RevertIfNotTaskManager() public {
-        skip();
+        vm.skip(true, "Test not implemented");
     }
 
     function test_RecordTaskValidation_RevertIfInvalidOperator() public {
-        skip();
+        vm.skip(true, "Test not implemented");
     }
 
     function test_RecordTaskValidation_RevertIfAlreadyValidated() public {
-        skip();
+        vm.skip(true, "Test not implemented");
     }
 
     // ============ SetTaskReward Tests ============
 
     function test_SetTaskReward_Success() public {
-        skip();
+        vm.skip(true, "Test not implemented");
     }
 
     function test_SetTaskReward_EmitsEvent() public {
-        skip();
+        vm.skip(true, "Test not implemented");
     }
 
     function test_SetTaskReward_RevertIfNotOwner() public {
-        skip();
+        vm.skip(true, "Test not implemented");
     }
 
     // ============ DistributeTaskReward Tests ============
 
     function test_DistributeTaskReward_Success() public {
-        skip();
+        vm.skip(true, "Test not implemented");
     }
 
     function test_DistributeTaskReward_RevertIfRewardNotSet() public {
-        skip();
+        vm.skip(true, "Test not implemented");
     }
 
     function test_DistributeTaskReward_OnlyValidatesValidOperators() public {
-        skip();
+        vm.skip(true, "Test not implemented");
     }
 
     function test_DistributeTaskReward_DistributesEqually() public {
-        skip();
+        vm.skip(true, "Test not implemented");
     }
 
     function test_DistributeTaskReward_HandlesRemainder() public {
-        skip();
+        vm.skip(true, "Test not implemented");
     }
 
     function test_DistributeTaskReward_RevertIfNotOwner() public {
-        skip();
+        vm.skip(true, "Test not implemented");
     }
 
     // ============ View Function Tests ============
 
     function test_RegistryCoordinator_ReturnsCorrectAddress() public {
-        skip();
+        vm.skip(true, "Test not implemented");
     }
 
     function test_StakeRegistry_ReturnsCorrectAddress() public {
-        skip();
+        vm.skip(true, "Test not implemented");
     }
 
     // ============ Edge Cases ============
 
     function test_DistributeTaskReward_EmptyOperatorsArray() public {
-        skip();
+        vm.skip(true, "Test not implemented");
     }
 
     function test_DistributeTaskReward_SingleOperator() public {
-        skip();
+        vm.skip(true, "Test not implemented");
     }
 
     function test_DistributeTaskReward_ManyOperators() public {
-        skip();
+        vm.skip(true, "Test not implemented");
     }
 }
 

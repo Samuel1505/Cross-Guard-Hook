@@ -54,7 +54,7 @@ contract MockServiceManager is IDarkPoolServiceManager {
         taskRewards[taskIndex] = rewardAmount;
     }
 
-    function distributeTaskReward(uint32 taskIndex, address[] calldata validOperators) external {
+    function distributeTaskReward(uint32 taskIndex, address[] calldata operators) external {
         // Mock implementation
     }
 

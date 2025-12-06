@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import {Test} from "forge-std/Test.sol";
 import {DarkPoolTaskManager} from "../../src/DarkPoolTaskManager.sol";
 import {IDarkPoolTaskManager} from "../../src/interfaces/IDarkPoolTaskManager.sol";
+import {IDarkPoolServiceManager} from "../../src/interfaces/IDarkPoolServiceManager.sol";
 import {MockServiceManager} from "../mocks/MockServiceManager.sol";
 
 /// @title DarkPoolTaskManager Basic Tests
