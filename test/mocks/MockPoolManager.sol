@@ -38,10 +38,7 @@ contract MockPoolManager is IPoolManager {
         return (toBalanceDelta(0, 0), toBalanceDelta(0, 0));
     }
 
-    function swap(PoolKey memory, SwapParams memory, bytes calldata)
-        external
-        returns (BalanceDelta)
-    {
+    function swap(PoolKey memory, SwapParams memory, bytes calldata) external returns (BalanceDelta) {
         return toBalanceDelta(0, 0);
     }
 

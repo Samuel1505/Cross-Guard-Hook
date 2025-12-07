@@ -264,7 +264,7 @@ contract DarkPoolTaskManagerEdgeCasesTest is Test {
 
         // Roll forward 100 blocks - vm.roll sets the block number for the next transaction
         vm.roll(block1 + 100);
-        
+
         taskManager.createNewTask(BATCH_HASH_1, 1, QUORUM_NUMBERS);
         uint256 task2Block = taskManager.getTask(1).createdBlock;
 
