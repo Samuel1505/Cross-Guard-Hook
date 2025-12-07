@@ -136,6 +136,8 @@ contract DarkPoolTaskManagerGasTest is Test {
         uint256 gasBefore = gasleft();
         for (uint256 i = 0; i < 10; i++) {
             address operator = address(uint160(operator1) + uint160(i));
+            serviceManager.setValidOperator(operator, true);
+            serviceManager.setOperatorStake(operator, 1e18);
             vm.prank(operator);
             taskManager.respondToTask(BATCH_HASH_1, RESPONSE_1, "");
         }

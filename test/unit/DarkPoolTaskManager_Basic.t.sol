@@ -77,10 +77,7 @@ contract DarkPoolTaskManagerBasicTest is Test {
 
     function test_Constructor_ZeroAddressServiceManager() public {
         // This should still deploy, but may fail on usage
-        DarkPoolTaskManager newTaskManager = new DarkPoolTaskManager(
-            IDarkPoolServiceManager(address(0)),
-            owner
-        );
+        DarkPoolTaskManager newTaskManager = new DarkPoolTaskManager(IDarkPoolServiceManager(address(0)), owner);
         assertEq(address(newTaskManager.SERVICE_MANAGER()), address(0));
     }
 

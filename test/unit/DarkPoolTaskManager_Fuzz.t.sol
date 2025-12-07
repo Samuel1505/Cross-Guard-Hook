@@ -60,11 +60,7 @@ contract DarkPoolTaskManagerFuzzTest is Test {
         assertEq(taskManager.getResponseCount(0, response), 1);
     }
 
-    function testFuzz_QuorumReached_ExactMatch(
-        uint32 quorumThreshold,
-        bytes32 batchHash,
-        bytes32 response
-    ) public {
+    function testFuzz_QuorumReached_ExactMatch(uint32 quorumThreshold, bytes32 batchHash, bytes32 response) public {
         vm.assume(quorumThreshold >= 1 && quorumThreshold <= 20);
 
         taskManager.createNewTask(batchHash, quorumThreshold, QUORUM_NUMBERS);
@@ -80,11 +76,7 @@ contract DarkPoolTaskManagerFuzzTest is Test {
         assertTrue(task.isCompleted);
     }
 
-    function testFuzz_QuorumReached_OneBelow(
-        uint32 quorumThreshold,
-        bytes32 batchHash,
-        bytes32 response
-    ) public {
+    function testFuzz_QuorumReached_OneBelow(uint32 quorumThreshold, bytes32 batchHash, bytes32 response) public {
         vm.assume(quorumThreshold >= 2 && quorumThreshold <= 20);
 
         taskManager.createNewTask(batchHash, quorumThreshold, QUORUM_NUMBERS);
@@ -100,11 +92,7 @@ contract DarkPoolTaskManagerFuzzTest is Test {
         assertFalse(task.isCompleted);
     }
 
-    function testFuzz_ResponseCounts_Accurate(
-        uint8 numResponses,
-        bytes32 batchHash,
-        bytes32 response
-    ) public {
+    function testFuzz_ResponseCounts_Accurate(uint8 numResponses, bytes32 batchHash, bytes32 response) public {
         vm.assume(numResponses >= 1 && numResponses <= 20);
 
         taskManager.createNewTask(batchHash, 100, QUORUM_NUMBERS);
@@ -117,10 +105,7 @@ contract DarkPoolTaskManagerFuzzTest is Test {
         assertEq(taskManager.getResponseCount(0, response), numResponses);
     }
 
-    function testFuzz_MultipleTasks_DifferentBatchHashes(
-        uint8 numTasks,
-        bytes32 seed
-    ) public {
+    function testFuzz_MultipleTasks_DifferentBatchHashes(uint8 numTasks, bytes32 seed) public {
         vm.assume(numTasks >= 1 && numTasks <= 10);
 
         for (uint256 i = 0; i < numTasks; i++) {
@@ -131,11 +116,7 @@ contract DarkPoolTaskManagerFuzzTest is Test {
         assertEq(taskManager.latestTaskNum(), numTasks);
     }
 
-    function testFuzz_DuplicateResponse_Reverts(
-        bytes32 batchHash,
-        bytes32 response1,
-        bytes32 response2
-    ) public {
+    function testFuzz_DuplicateResponse_Reverts(bytes32 batchHash, bytes32 response1, bytes32 response2) public {
         vm.assume(response1 != response2);
 
         taskManager.createNewTask(batchHash, 2, QUORUM_NUMBERS);
@@ -154,11 +135,7 @@ contract DarkPoolTaskManagerFuzzTest is Test {
         taskManager.respondToTask(batchHash, response, "");
     }
 
-    function testFuzz_ForceComplete_OnlyOwner(
-        bytes32 batchHash,
-        bytes32 response,
-        address nonOwner
-    ) public {
+    function testFuzz_ForceComplete_OnlyOwner(bytes32 batchHash, bytes32 response, address nonOwner) public {
         vm.assume(nonOwner != owner && nonOwner != address(0));
 
         taskManager.createNewTask(batchHash, 100, QUORUM_NUMBERS);
@@ -168,11 +145,7 @@ contract DarkPoolTaskManagerFuzzTest is Test {
         taskManager.forceCompleteTask(0, response);
     }
 
-    function testFuzz_Pause_BlocksOperations(
-        bytes32 batchHash,
-        bytes32 response,
-        uint32 quorumThreshold
-    ) public {
+    function testFuzz_Pause_BlocksOperations(bytes32 batchHash, bytes32 response, uint32 quorumThreshold) public {
         vm.assume(quorumThreshold >= 1 && quorumThreshold <= 100);
 
         taskManager.pause();
