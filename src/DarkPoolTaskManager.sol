@@ -26,6 +26,12 @@ contract DarkPoolTaskManager is IDarkPoolTaskManager, ReentrancyGuard, Ownable, 
     /// @notice Mapping of task index to response hash to count
     mapping(uint32 => mapping(bytes32 => uint256)) public responseCounts;
 
+    /// @notice Mapping of task index to operator to whether they have responded
+    mapping(uint32 => mapping(address => bool)) private _hasResponded;
+
+    /// @notice Mapping of task index to whether it was force-completed
+    mapping(uint32 => bool) private _isForceCompleted;
+
     /// @notice Minimum quorum threshold
     uint32 public constant MIN_QUORUM_THRESHOLD = 1;
 
@@ -88,8 +94,8 @@ contract DarkPoolTaskManager is IDarkPoolTaskManager, ReentrancyGuard, Ownable, 
         nonReentrant
         whenNotPaused
     {
-        // Find the task by batch hash
-        uint32 taskIndex = _findTaskByBatchHash(batchHash);
+        // First, try to find any task with this batch hash (including completed ones)
+        uint32 taskIndex = _findTaskByBatchHash(batchHash, false);
 
         if (taskIndex == type(uint32).max) {
             revert TaskNotFound();
@@ -97,7 +103,8 @@ contract DarkPoolTaskManager is IDarkPoolTaskManager, ReentrancyGuard, Ownable, 
 
         Task storage task = tasks[taskIndex];
 
-        if (task.isCompleted) {
+        // Check if task was force-completed (block responses for force-completed tasks)
+        if (_isForceCompleted[taskIndex]) {
             revert TaskAlreadyCompleted();
         }
 
@@ -106,8 +113,8 @@ contract DarkPoolTaskManager is IDarkPoolTaskManager, ReentrancyGuard, Ownable, 
             revert OperatorNotValid();
         }
 
-        // Check if operator already responded
-        if (taskResponses[taskIndex][msg.sender] != bytes32(0)) {
+        // Check if operator already responded (works even if response is bytes32(0))
+        if (_hasResponded[taskIndex][msg.sender]) {
             revert DuplicateResponse();
         }
 
@@ -117,6 +124,7 @@ contract DarkPoolTaskManager is IDarkPoolTaskManager, ReentrancyGuard, Ownable, 
 
         // Record response
         taskResponses[taskIndex][msg.sender] = response;
+        _hasResponded[taskIndex][msg.sender] = true;
         responseCounts[taskIndex][response]++;
 
         // Notify service manager
@@ -166,13 +174,17 @@ contract DarkPoolTaskManager is IDarkPoolTaskManager, ReentrancyGuard, Ownable, 
 
     /// @notice Find task index by batch hash
     /// @param batchHash The batch hash to search for
+    /// @param requireIncomplete If true, only return incomplete tasks
     /// @return The task index, or type(uint32).max if not found
-    function _findTaskByBatchHash(bytes32 batchHash) internal view returns (uint32) {
+    function _findTaskByBatchHash(bytes32 batchHash, bool requireIncomplete) internal view returns (uint32) {
         // Linear search through recent tasks (in production, use a mapping)
         // For efficiency, we'll search backwards from _latestTaskNum
         for (uint32 i = _latestTaskNum; i > 0; i--) {
             uint32 taskIndex = i - 1;
-            if (tasks[taskIndex].batchHash == batchHash && !tasks[taskIndex].isCompleted) {
+            if (tasks[taskIndex].batchHash == batchHash) {
+                if (requireIncomplete && tasks[taskIndex].isCompleted) {
+                    continue; // Skip completed tasks if we require incomplete
+                }
                 return taskIndex;
             }
         }
@@ -192,6 +204,7 @@ contract DarkPoolTaskManager is IDarkPoolTaskManager, ReentrancyGuard, Ownable, 
         }
 
         task.isCompleted = true;
+        _isForceCompleted[taskIndex] = true;
         emit TaskCompleted(taskIndex, response);
     }
 

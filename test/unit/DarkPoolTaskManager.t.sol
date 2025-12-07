@@ -166,11 +166,11 @@ contract DarkPoolTaskManagerTest is Test {
     function test_RespondToTask_ReachesQuorum() public {
         taskManager.createNewTask(BATCH_HASH_1, 2, QUORUM_NUMBERS);
 
-        vm.expectEmit(true, true, true, true);
-        emit TaskCompleted(0, RESPONSE_1);
-
         vm.prank(operator1);
         taskManager.respondToTask(BATCH_HASH_1, RESPONSE_1, "");
+
+        vm.expectEmit(true, true, true, true);
+        emit TaskCompleted(0, RESPONSE_1);
 
         vm.prank(operator2);
         taskManager.respondToTask(BATCH_HASH_1, RESPONSE_1, "");
@@ -186,11 +186,16 @@ contract DarkPoolTaskManagerTest is Test {
     }
 
     function test_RespondToTask_RevertIfTaskAlreadyCompleted() public {
-        taskManager.createNewTask(BATCH_HASH_1, 1, QUORUM_NUMBERS);
+        // Create task with quorum 2 so it doesn't auto-complete after first response
+        taskManager.createNewTask(BATCH_HASH_1, 2, QUORUM_NUMBERS);
 
         vm.prank(operator1);
         taskManager.respondToTask(BATCH_HASH_1, RESPONSE_1, "");
 
+        // Force complete the task before quorum is reached
+        taskManager.forceCompleteTask(0, RESPONSE_1);
+
+        // Now responses should be blocked after force complete
         vm.expectRevert(DarkPoolTaskManager.TaskAlreadyCompleted.selector);
         vm.prank(operator2);
         taskManager.respondToTask(BATCH_HASH_1, RESPONSE_1, "");
