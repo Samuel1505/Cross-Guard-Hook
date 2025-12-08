@@ -14,6 +14,7 @@ import {IPermissionController} from "eigenlayer-contracts/src/contracts/interfac
 import {IAllocationManager} from "eigenlayer-contracts/src/contracts/interfaces/IAllocationManager.sol";
 import {ISlashingRegistryCoordinator} from "eigenlayer-middleware/interfaces/ISlashingRegistryCoordinator.sol";
 import {Vm} from "forge-std/Vm.sol";
+import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 /// @dev Minimal task manager that can call back into the service manager
 contract MockTaskManager is IDarkPoolTaskManager {
@@ -66,7 +67,7 @@ contract DarkPoolServiceManagerTest is Test {
 
     function _deployServiceManager() internal returns (DarkPoolServiceManager, MockTaskManager) {
         MockTaskManager mockTaskManager = new MockTaskManager();
-        DarkPoolServiceManager manager = new DarkPoolServiceManager(
+        DarkPoolServiceManager implementation = new DarkPoolServiceManager(
             IAVSDirectory(mockAVSDirectory),
             IRewardsCoordinator(mockRewardsCoordinator),
             ISlashingRegistryCoordinator(mockRegistryCoordinator),
@@ -75,13 +76,16 @@ contract DarkPoolServiceManagerTest is Test {
             IAllocationManager(mockAllocationManager),
             mockTaskManager
         );
+        ERC1967Proxy proxy = new ERC1967Proxy(
+            address(implementation),
+            abi.encodeWithSelector(DarkPoolServiceManager.initialize.selector, owner, rewardsInitiator)
+        );
+        DarkPoolServiceManager manager = DarkPoolServiceManager(address(proxy));
         return (manager, mockTaskManager);
     }
 
     function _deployAndInit() internal returns (DarkPoolServiceManager, MockTaskManager) {
-        (DarkPoolServiceManager manager, MockTaskManager mockTaskManager) = _deployServiceManager();
-        manager.initialize(owner, rewardsInitiator);
-        return (manager, mockTaskManager);
+        return _deployServiceManager();
     }
 
     function _mockOperator(
@@ -148,9 +152,21 @@ contract DarkPoolServiceManagerTest is Test {
     // ============ Initialize Tests ============
 
     function test_Initialize_Success() public {
-        (DarkPoolServiceManager manager,) = _deployServiceManager();
-
-        manager.initialize(owner, rewardsInitiator);
+        MockTaskManager mockTaskManager = new MockTaskManager();
+        DarkPoolServiceManager implementation = new DarkPoolServiceManager(
+            IAVSDirectory(mockAVSDirectory),
+            IRewardsCoordinator(mockRewardsCoordinator),
+            ISlashingRegistryCoordinator(mockRegistryCoordinator),
+            IStakeRegistry(mockStakeRegistry),
+            IPermissionController(mockPermissionController),
+            IAllocationManager(mockAllocationManager),
+            mockTaskManager
+        );
+        ERC1967Proxy proxy = new ERC1967Proxy(
+            address(implementation),
+            abi.encodeWithSelector(DarkPoolServiceManager.initialize.selector, owner, rewardsInitiator)
+        );
+        DarkPoolServiceManager manager = DarkPoolServiceManager(address(proxy));
 
         assertEq(manager.owner(), owner);
         assertEq(manager.rewardsInitiator(), rewardsInitiator);
@@ -158,8 +174,6 @@ contract DarkPoolServiceManagerTest is Test {
 
     function test_Initialize_RevertIfAlreadyInitialized() public {
         (DarkPoolServiceManager manager,) = _deployServiceManager();
-
-        manager.initialize(owner, rewardsInitiator);
 
         vm.expectRevert("Initializable: contract is already initialized");
         manager.initialize(owner, rewardsInitiator);
