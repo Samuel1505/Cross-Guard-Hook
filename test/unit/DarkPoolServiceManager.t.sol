@@ -27,15 +27,14 @@ contract MockTaskManager is IDarkPoolTaskManager {
     }
 
     function getTask(uint32) external pure override returns (Task memory) {
-        return
-            Task({
-                batchHash: bytes32(0),
-                quorumThreshold: 0,
-                quorumNumbers: "",
-                createdBlock: 0,
-                creator: address(0),
-                isCompleted: false
-            });
+        return Task({
+            batchHash: bytes32(0),
+            quorumThreshold: 0,
+            quorumNumbers: "",
+            createdBlock: 0,
+            creator: address(0),
+            isCompleted: false
+        });
     }
 
     function callRecordValidation(DarkPoolServiceManager manager, uint32 taskIndex, address operator) external {
@@ -88,13 +87,9 @@ contract DarkPoolServiceManagerTest is Test {
         return _deployServiceManager();
     }
 
-    function _mockOperator(
-        address operator,
-        bytes32 operatorId,
-        uint8 quorum,
-        uint96 stake,
-        uint96 minimumStake
-    ) internal {
+    function _mockOperator(address operator, bytes32 operatorId, uint8 quorum, uint96 stake, uint96 minimumStake)
+        internal
+    {
         vm.mockCall(
             mockRegistryCoordinator,
             abi.encodeWithSelector(ISlashingRegistryCoordinator.getOperatorId.selector, operator),
@@ -211,13 +206,9 @@ contract DarkPoolServiceManagerTest is Test {
             abi.encodeWithSelector(ISlashingRegistryCoordinator.getOperatorId.selector, operator1)
         );
         vm.expectCall(
-            mockStakeRegistry,
-            abi.encodeWithSelector(IStakeRegistry.getCurrentStake.selector, operatorId, quorum)
+            mockStakeRegistry, abi.encodeWithSelector(IStakeRegistry.getCurrentStake.selector, operatorId, quorum)
         );
-        vm.expectCall(
-            mockStakeRegistry,
-            abi.encodeWithSelector(IStakeRegistry.minimumStakeForQuorum.selector, quorum)
-        );
+        vm.expectCall(mockStakeRegistry, abi.encodeWithSelector(IStakeRegistry.minimumStakeForQuorum.selector, quorum));
 
         _mockOperator(operator1, operatorId, quorum, 2e18, 1e18);
 
