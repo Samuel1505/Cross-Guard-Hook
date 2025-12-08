@@ -34,7 +34,9 @@ contract DarkPoolHookTest is Test {
     Currency public currency1;
 
     event CommitCreated(bytes32 indexed commitHash, address indexed user, PoolId indexed poolId, uint256 commitBlock);
-    event SwapRevealed(bytes32 indexed commitHash, address indexed user, PoolId indexed poolId, uint256 amountIn, uint256 amountOut);
+    event SwapRevealed(
+        bytes32 indexed commitHash, address indexed user, PoolId indexed poolId, uint256 amountIn, uint256 amountOut
+    );
     event PoolEnabled(PoolId indexed poolId, bool enabled);
     event CommitPeriodUpdated(uint256 oldPeriod, uint256 newPeriod);
     event CrossChainBridgeUpdated(address oldBridge, address newBridge);
@@ -50,27 +52,21 @@ contract DarkPoolHookTest is Test {
 
         // Calculate hook address with correct flags (BEFORE_SWAP_FLAG | AFTER_SWAP_FLAG)
         address hookAddress = address(
-            uint160(
-                (type(uint160).max & ~Hooks.ALL_HOOK_MASK) | Hooks.BEFORE_SWAP_FLAG | Hooks.AFTER_SWAP_FLAG
-            )
+            uint160((type(uint160).max & ~Hooks.ALL_HOOK_MASK) | Hooks.BEFORE_SWAP_FLAG | Hooks.AFTER_SWAP_FLAG)
         );
 
         // Deploy hook to the correct address using deployCodeTo
         // This bypasses address validation by deploying directly to the target address
         bytes memory constructorArgs = abi.encode(poolManager, serviceManager, taskManager, owner);
         deployCodeTo("DarkPoolHook", constructorArgs, hookAddress);
-        
+
         hook = DarkPoolHook(hookAddress);
 
         currency0 = Currency.wrap(address(0x100));
         currency1 = Currency.wrap(address(0x200));
 
         poolKey = PoolKey({
-            currency0: currency0,
-            currency1: currency1,
-            fee: 3000,
-            tickSpacing: 60,
-            hooks: IHooks(address(hook))
+            currency0: currency0, currency1: currency1, fee: 3000, tickSpacing: 60, hooks: IHooks(address(hook))
         });
         poolId = poolKey.toId();
     }
@@ -124,9 +120,8 @@ contract DarkPoolHookTest is Test {
 
         // Calculate expected commit hash (need to know the nonce, which starts at 0)
         uint256 nonce = hook.userNonces(user);
-        bytes32 expectedCommitHash = keccak256(
-            abi.encodePacked(user, poolId, amountIn, currency0, currency1, deadline, nonce, secret)
-        );
+        bytes32 expectedCommitHash =
+            keccak256(abi.encodePacked(user, poolId, amountIn, currency0, currency1, deadline, nonce, secret));
 
         vm.expectEmit(true, true, true, true);
         emit CommitCreated(expectedCommitHash, user, poolId, block.number);
@@ -228,7 +223,9 @@ contract DarkPoolHookTest is Test {
         emit SwapRevealed(commitHash, user, poolId, 1e18, 0);
 
         vm.prank(user);
-        hook.revealAndSwap(commitHash, secret, poolKey, SwapParams({zeroForOne: true, amountSpecified: 1e18, sqrtPriceLimitX96: 0}), "");
+        hook.revealAndSwap(
+            commitHash, secret, poolKey, SwapParams({zeroForOne: true, amountSpecified: 1e18, sqrtPriceLimitX96: 0}), ""
+        );
 
         DarkPoolHook.CommitData memory commit = hook.getCommit(commitHash);
         assertTrue(commit.revealed);
@@ -239,7 +236,9 @@ contract DarkPoolHookTest is Test {
         bytes32 secret = keccak256("secret");
 
         vm.expectRevert(DarkPoolHook.CommitNotFound.selector);
-        hook.revealAndSwap(fakeHash, secret, poolKey, SwapParams({zeroForOne: true, amountSpecified: 1e18, sqrtPriceLimitX96: 0}), "");
+        hook.revealAndSwap(
+            fakeHash, secret, poolKey, SwapParams({zeroForOne: true, amountSpecified: 1e18, sqrtPriceLimitX96: 0}), ""
+        );
     }
 
     function test_RevealAndSwap_RevertIfAlreadyRevealed() public {
@@ -254,11 +253,15 @@ contract DarkPoolHookTest is Test {
         vm.roll(block.number + hook.DEFAULT_COMMIT_PERIOD() + 1);
 
         vm.prank(user);
-        hook.revealAndSwap(commitHash, secret, poolKey, SwapParams({zeroForOne: true, amountSpecified: 1e18, sqrtPriceLimitX96: 0}), "");
+        hook.revealAndSwap(
+            commitHash, secret, poolKey, SwapParams({zeroForOne: true, amountSpecified: 1e18, sqrtPriceLimitX96: 0}), ""
+        );
 
         vm.expectRevert(DarkPoolHook.CommitAlreadyRevealed.selector);
         vm.prank(user);
-        hook.revealAndSwap(commitHash, secret, poolKey, SwapParams({zeroForOne: true, amountSpecified: 1e18, sqrtPriceLimitX96: 0}), "");
+        hook.revealAndSwap(
+            commitHash, secret, poolKey, SwapParams({zeroForOne: true, amountSpecified: 1e18, sqrtPriceLimitX96: 0}), ""
+        );
     }
 
     function test_RevealAndSwap_RevertIfCommitPeriodNotElapsed() public {
@@ -272,7 +275,9 @@ contract DarkPoolHookTest is Test {
 
         vm.expectRevert(DarkPoolHook.CommitPeriodNotElapsed.selector);
         vm.prank(user);
-        hook.revealAndSwap(commitHash, secret, poolKey, SwapParams({zeroForOne: true, amountSpecified: 1e18, sqrtPriceLimitX96: 0}), "");
+        hook.revealAndSwap(
+            commitHash, secret, poolKey, SwapParams({zeroForOne: true, amountSpecified: 1e18, sqrtPriceLimitX96: 0}), ""
+        );
     }
 
     function test_RevealAndSwap_RevertIfDeadlinePassed() public {
@@ -289,7 +294,9 @@ contract DarkPoolHookTest is Test {
 
         vm.expectRevert(DarkPoolHook.CommitExpired.selector);
         vm.prank(user);
-        hook.revealAndSwap(commitHash, secret, poolKey, SwapParams({zeroForOne: true, amountSpecified: 1e18, sqrtPriceLimitX96: 0}), "");
+        hook.revealAndSwap(
+            commitHash, secret, poolKey, SwapParams({zeroForOne: true, amountSpecified: 1e18, sqrtPriceLimitX96: 0}), ""
+        );
     }
 
     function test_RevealAndSwap_RevertIfInvalidReveal() public {
@@ -306,7 +313,13 @@ contract DarkPoolHookTest is Test {
 
         vm.expectRevert(DarkPoolHook.InvalidReveal.selector);
         vm.prank(user);
-        hook.revealAndSwap(commitHash, wrongSecret, poolKey, SwapParams({zeroForOne: true, amountSpecified: 1e18, sqrtPriceLimitX96: 0}), "");
+        hook.revealAndSwap(
+            commitHash,
+            wrongSecret,
+            poolKey,
+            SwapParams({zeroForOne: true, amountSpecified: 1e18, sqrtPriceLimitX96: 0}),
+            ""
+        );
     }
 
     function test_RevealAndSwap_RevertIfAlreadyExecuted() public {
@@ -322,12 +335,16 @@ contract DarkPoolHookTest is Test {
 
         // First reveal should succeed
         vm.prank(user);
-        hook.revealAndSwap(commitHash, secret, poolKey, SwapParams({zeroForOne: true, amountSpecified: 1e18, sqrtPriceLimitX96: 0}), "");
+        hook.revealAndSwap(
+            commitHash, secret, poolKey, SwapParams({zeroForOne: true, amountSpecified: 1e18, sqrtPriceLimitX96: 0}), ""
+        );
 
         // Second reveal should revert as it's already revealed
         vm.expectRevert(DarkPoolHook.CommitAlreadyRevealed.selector);
         vm.prank(user);
-        hook.revealAndSwap(commitHash, secret, poolKey, SwapParams({zeroForOne: true, amountSpecified: 1e18, sqrtPriceLimitX96: 0}), "");
+        hook.revealAndSwap(
+            commitHash, secret, poolKey, SwapParams({zeroForOne: true, amountSpecified: 1e18, sqrtPriceLimitX96: 0}), ""
+        );
     }
 
     // ============ Pool Management Tests ============
@@ -446,11 +463,7 @@ contract DarkPoolHookTest is Test {
 
     function test_CommitSwap_DifferentPools() public {
         PoolKey memory poolKey2 = PoolKey({
-            currency0: currency0,
-            currency1: currency1,
-            fee: 500,
-            tickSpacing: 60,
-            hooks: IHooks(address(hook))
+            currency0: currency0, currency1: currency1, fee: 500, tickSpacing: 60, hooks: IHooks(address(hook))
         });
 
         hook.setPoolEnabled(poolKey, true);
@@ -483,13 +496,17 @@ contract DarkPoolHookTest is Test {
 
         vm.expectRevert(DarkPoolHook.CommitPeriodNotElapsed.selector);
         vm.prank(user);
-        hook.revealAndSwap(commitHash, secret, poolKey, SwapParams({zeroForOne: true, amountSpecified: 1e18, sqrtPriceLimitX96: 0}), "");
+        hook.revealAndSwap(
+            commitHash, secret, poolKey, SwapParams({zeroForOne: true, amountSpecified: 1e18, sqrtPriceLimitX96: 0}), ""
+        );
 
         // Advance to exactly commit period blocks (should succeed as block.number >= commitBlock + commitPeriod)
         vm.roll(commitBlock + hook.DEFAULT_COMMIT_PERIOD());
 
         vm.prank(user);
-        hook.revealAndSwap(commitHash, secret, poolKey, SwapParams({zeroForOne: true, amountSpecified: 1e18, sqrtPriceLimitX96: 0}), "");
+        hook.revealAndSwap(
+            commitHash, secret, poolKey, SwapParams({zeroForOne: true, amountSpecified: 1e18, sqrtPriceLimitX96: 0}), ""
+        );
     }
 }
 
