@@ -2,20 +2,6 @@
 
 Uniswap v4 hook that adds privacy-preserving swaps, EigenLayer AVS validation, and cross-chain swap plumbing. This README gives a deep overview, flows, deployment, and operational guidance.
 
-## Table of contents
-- [Motivation](#motivation)
-- [High-level architecture](#high-level-architecture)
-- [Core contracts](#core-contracts)
-- [Key flows](#key-flows)
-- [Configuration](#configuration)
-- [Deployment guide](#deployment-guide)
-- [Operator onboarding (EigenLayer)](#operator-onboarding-eigenlayer)
-- [Cross-chain integration](#cross-chain-integration)
-- [Security model](#security-model)
-- [Testing](#testing)
-- [Repository layout](#repository-layout)
-- [Frequently asked questions](#frequently-asked-questions)
-
 ## Motivation
 - **MEV mitigation for swaps:** Commit–reveal hides intent until execution.
 - **Economic security via EigenLayer:** AVS operators validate batches; slashable stake backs correctness.
